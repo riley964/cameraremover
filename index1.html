@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Background Removal</title>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; }
+        .container { max-width: 800px; margin: auto; }
+        video, canvas { width: 640px; height: 480px; display: block; margin: 10px auto; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Live Background Removal</h1>
+        <video id="video" autoplay></video>
+        <canvas id="canvas"></canvas>
+        <button id="capture">Capture Background</button>
+        <button id="toggle">Toggle Removal</button>
+    </div>
+
+    <script>
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const captureBtn = document.getElementById("capture");
+        const toggleBtn = document.getElementById("toggle");
+
+        let background = null;
+        let isRemoving = false;
+
+        async function setupCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+        }
+
+        function captureBackground() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            background = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            alert("Background captured! Now move into view and toggle removal.");
+        }
+
+        function processFrame() {
+            if (!background || !isRemoving) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            } else {
+                const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const pixels = frame.data;
+                const bgPixels = background.data;
+
+                for (let i = 0; i < pixels.length; i += 4) {
+                    const diff = Math.abs(pixels[i] - bgPixels[i]) +
+                                 Math.abs(pixels[i + 1] - bgPixels[i + 1]) +
+                                 Math.abs(pixels[i + 2] - bgPixels[i + 2]);
+
+                    if (diff < 50) {
+                        pixels[i + 3] = 0; // Make transparent
+                    }
+                }
+
+                ctx.putImageData(frame, 0, 0);
+            }
+
+            requestAnimationFrame(processFrame);
+        }
+
+        captureBtn.addEventListener("click", captureBackground);
+        toggleBtn.addEventListener("click", () => isRemoving = !isRemoving);
+
+        (async () => {
+            await setupCamera();
+            processFrame();
+        })();
+    </script>
+</body>
+</html>
